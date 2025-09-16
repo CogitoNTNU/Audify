@@ -32,8 +32,11 @@
 
 <!-- TODO: Provide a brief overview of what this project does and its key features. Please add pictures or videos of the application -->
 
-## 🛠️ Prerequisites
 
+
+## 🛠️ Prerequisites
+Last ned denne:
+https://www.kaggle.com/datasets/mathurinache/the-lj-speech-dataset/data
 <!-- TODO: In this section you put what is needed for the program to run.
 For example: OS version, programs, libraries, etc.  
 
