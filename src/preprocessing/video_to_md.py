@@ -1,31 +1,39 @@
 from urllib.parse import urlparse, parse_qs
-import subprocess 
-import os 
-from pathlib import Path 
+import subprocess
+import os
+from pathlib import Path
 
 
-def youtube_to_md(youtube_url: str)->str:
-    output_dir = r"data/markdown"
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    
-    parsed = urlparse(youtube_url)
-    if parsed.hostname in ("www.youtube.com", "youtube.com"):
-        video_id = parse_qs(parsed.query).get("v", [None])[0]
+def youtube_to_markdown(youtube_url: str) -> str:
+    output_dir = Path("data/markdown")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    elif parsed.hostname == "youtu.be":
-        video_id = parsed.path.lstrip("/")
+    #extracting id's
+    parsed_url = urlparse(youtube_url)
+    if parsed_url.hostname in ("www.youtube.com", "youtube.com"):
+        video_id = parse_qs(parsed_url.query).get("v", [None])[0]
+    elif parsed_url.hostname == "youtu.be":
+        video_id = parsed_url.path.lstrip("/")
     else:
-        raise ValueError("This is an invalid YouTube URL")
-    
-    md_path = os.path.join(output_dir, f'{video_id}.md')
+        raise ValueError("Invalid YouTube URL")
 
-    cmd = ["yt2doc", "--video", youtube_url, "-o", md_path]
+    #output markdown file path
+    output_path = output_dir / f"{video_id}.md"
+
+    #skip conversion if file already exists
+    if output_path.exists():
+        return str(output_path)
+
+    #run yt2doc command
+    cmd = ["yt2doc", "--video", youtube_url, "-o", str(output_path)]
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
         raise RuntimeError(f"yt2doc failed:\n{result.stderr}")
 
-    return md_path
+    return str(output_path)
 
-file_path = youtube_to_md("https://www.youtube.com/watch?v=Gx5qb1uHss4")
-print("Transcript saved at:", file_path)
+
+if __name__ == "__main__":
+    file_path = youtube_to_markdown("https://www.youtube.com/watch?v=Gx5qb1uHss4")
+    print("Transcript saved at:", file_path)
