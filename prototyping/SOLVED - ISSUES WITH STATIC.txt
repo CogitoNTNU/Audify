@@ -1,0 +1,65 @@
+Ah — getting **static** instead of intelligible speech is a very common symptom in voice conversion pipelines, and it usually points to **problems in one or more of these areas**:
+
+---
+
+### 1️⃣ Vocoder / Mel-to-Waveform Step
+
+* You’re currently using **`InverseMelScale + Griffin-Lim`**.
+* Griffin-Lim is an **iterative algorithm**, but it’s very sensitive to:
+
+  * The **number of iterations** (default in PyTorch may be too low).
+  * The **mel spectrogram scaling** — log-mels vs. linear-mels.
+* If the input to Griffin-Lim isn’t scaled correctly, you can get **static or noisy audio**.
+
+**Likely culprit:** This is the most common reason for static at the end of your pipeline. Neural vocoders like **HiFi-GAN** usually solve this problem entirely.
+
+---
+
+### 2️⃣ Decoder Output
+
+* Your **dummy Transformer decoder** is not trained.
+* Right now it’s just projecting latent + speaker embeddings through random weights.
+* The output mel spectrogram is **essentially random** → feeding that into any vocoder produces noise/static.
+
+**Key point:** Until your decoder is **trained on paired data** (source mel → target mel), you will never get intelligible voice.
+
+---
+
+### 3️⃣ Latent Content or Speaker Embedding Issues
+
+* If the latent content (`preprocessed mel`) is incorrectly extracted or normalized, the decoder input may be nonsensical.
+* Similarly, if the speaker embedding is wrong (e.g., extremely small or large values), concatenating it can corrupt the input.
+
+---
+
+### 4️⃣ Preprocessing / Mel Parameters
+
+* Check that **`n_mels`, `hop_length`, and `n_fft`** match across:
+
+  * Preprocessing (`preprocess.py`)
+  * Decoder (`decoder.py`)
+  * Vocoder (`mel_to_waveform` / future HiFi-GAN)
+* Mismatched parameters lead to **wrong spectrogram shapes**, which can produce noise.
+
+---
+
+### ✅ In Summary
+
+The **main reason you hear static is twofold**:
+
+1. **Decoder is untrained**, so the "converted mel" is essentially random.
+2. **Griffin-Lim vocoder** is very sensitive, especially with log-mels and small iteration counts.
+
+---
+
+### 🔹 Suggested Next Steps
+
+1. Switch to a **pretrained neural vocoder** like **HiFi-GAN** — this will instantly improve audio quality.
+2. Train your **decoder** properly with a dataset of source → target mels. Right now the output is just random.
+3. Make sure **mel preprocessing parameters match** across the entire pipeline.
+
+---
+
+If you want, I can **rewrite your decoder + vocoder section** using **HiFi-GAN**, so you can at least hear something intelligible even before training.
+
+Do you want me to do that?
