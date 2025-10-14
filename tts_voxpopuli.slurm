@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH --account=studiegrupper-cogito
 #SBATCH --job-name="tts_voxpopuli"
-#SBATCH --time=3-00:00:00
+#SBATCH --time=20:00:00
 #SBATCH --partition=GPUQ
 #SBATCH --gres=gpu:1
 #SBATCH --mem=32GB
@@ -31,11 +31,12 @@ conda create -y --prefix ${ENV_PATH} python=3.11
 conda activate ${ENV_PATH}
 
 echo "Downloaded dependencies:"
+pip install transformers "datasets==3.6.0" soundfile speechbrain accelerate
 pip freeze
 
 
 # Run the Python script
-python Audify/src/tts_voxpopuli.ipynb
+python ./src/tts_voxpopuli.py
 
 # Deactivate the environment
 conda deactivate
