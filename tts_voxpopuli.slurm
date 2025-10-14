@@ -35,7 +35,7 @@ pip freeze
 
 
 # Run the Python script
-python Audify/tts_voxpopuli.ipynb
+python Audify/src/tts_voxpopuli.ipynb
 
 # Deactivate the environment
 conda deactivate
