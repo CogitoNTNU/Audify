@@ -29,14 +29,13 @@ conda create -y --prefix ${ENV_PATH} python=3.11
 
 # Activate the environment
 conda activate ${ENV_PATH}
-pip install -r pytorch_requirements.txt
 
 echo "Downloaded dependencies:"
 pip freeze
 
 
 # Run the Python script
-python tts_voxpopuli.ipynb
+python Audify/tts_voxpopuli.ipynb
 
 # Deactivate the environment
 conda deactivate
