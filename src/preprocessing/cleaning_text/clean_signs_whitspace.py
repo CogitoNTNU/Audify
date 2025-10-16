@@ -22,4 +22,13 @@ def remove_unwanted_signs(text: str) -> str:
     text = re.sub(r"\([^)]*\)", "", text)  #remove text inside parentheses
     text = re.sub(r"\{[^}]*\}", "", text)  #remove curly brace notes
     text = re.sub(r"[*_#><`]", "", text)   #remove markdown-style signs
+    text = re.sub(r"\s*\n\s*", "\n", text) #remove spaces/tabs around \n
+
+    #remove links, have already removed #
+    text = re.sub(r"\[.*?\]\(.*?\)", "", text) #remove markdown-style links: [text](url)
+    text = re.sub(r"http\S+|www\S+", "", text) #remove plain URLs (http, https, www)
+    text = re.sub(r"\S+@\S+", "", text) #remove email addresses
     return text
+
+
+
