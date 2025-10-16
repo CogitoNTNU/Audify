@@ -1,14 +1,19 @@
-# %%
-%pip install transformers "datasets==3.6.0" soundfile speechbrain accelerate wandb
-
-
-# %%
-!nvidia-smi
+import os
+os.system("pip install torch==2.0.1 torchaudio==2.0.2 speechbrain==0.5.15 transformers datasets==3.6.0 soundfile speechbrain accelerate wandb python-dotenv librosa matplotlib")
+os.system("nvidia-smi")
 
 # %%
 from huggingface_hub import login
 import wandb
 import os
+from dotenv import load_dotenv
+from speechbrain.pretrained import EncoderClassifier
+
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+dotenv_path = os.path.join(project_root, '.env')
+
+load_dotenv(dotenv_path=dotenv_path)
 
 HF_TOKEN = os.getenv('HF_TOKEN')
 WANDB_API_KEY = os.getenv('WANDB_API_KEY')

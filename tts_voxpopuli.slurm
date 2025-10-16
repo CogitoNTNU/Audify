@@ -19,7 +19,7 @@ echo "Name of job: $SLURM_JOB_NAME"
 echo "ID of job: $SLURM_JOB_ID"
 echo "The job was run on these nodes: $SLURM_JOB_NODELIST"
 
-ENV_PATH="/cluster/work/$(whoami)/Audify/.env/"
+ENV_PATH="/cluster/work/$(whoami)/Audify/conda-env/"
 
 module purge
 module load Anaconda3/2024.02-1
@@ -31,8 +31,10 @@ conda create -y --prefix ${ENV_PATH} python=3.11
 conda activate ${ENV_PATH}
 
 echo "Downloaded dependencies:"
-pip install transformers "datasets==3.6.0" soundfile speechbrain accelerate
+#pip install transformers "datasets==3.6.0" soundfile speechbrain accelerate
+pip install torch==2.0.1 torchaudio==2.0.2 speechbrain==0.5.15 transformers datasets==3.6.0 soundfile accelerate wandb python-dotenv librosa matplotlib
 pip freeze
+
 
 
 # Run the Python script
