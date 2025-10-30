@@ -2,11 +2,18 @@ from transformers import SpeechT5HifiGan, SpeechT5ForTextToSpeech, SpeechT5Proce
 import torch
 import numpy as np
 
-model = SpeechT5ForTextToSpeech.from_pretrained(
-    "klein2303/speecht5_finetuned_voxpopuli_en"
-)
-vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
-processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
+# Load model directly
+from transformers import AutoProcessor, AutoModelForTextToSpectrogram
+
+processor = AutoProcessor.from_pretrained("Klein2303/speecht5_finetuned_voxpopuli_en")
+model = AutoModelForTextToSpectrogram.from_pretrained("Klein2303/speecht5_finetuned_voxpopuli_en")
+
+
+# model = SpeechT5ForTextToSpeech.from_pretrained(
+#   "Klein2303/speecht5_finetuned_voxpopuli_en"
+# )
+# vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+# processor = AutoProcessor.from_pretrained("Klein2303/speecht5_finetuned_voxpopuli_en")
 
 def tts(text: str, speaker_embedding = torch.zeros((1, 512))) -> np.ndarray:
     """
