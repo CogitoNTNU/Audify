@@ -34,6 +34,6 @@ def youtube_to_markdown(youtube_url: str) -> str:
     return str(output_path)
 
 
-if __name__ == "__main__":
-    file_path = youtube_to_markdown("https://www.youtube.com/watch?v=Gx5qb1uHss4")
-    print("Transcript saved at:", file_path)
+# if __name__ == "__main__":
+#     file_path = youtube_to_markdown("https://www.youtube.com/watch?v=Gx5qb1uHss4")
+#     print("Transcript saved at:", file_path)
