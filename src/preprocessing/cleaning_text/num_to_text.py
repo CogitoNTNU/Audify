@@ -226,7 +226,11 @@ def replace_time(m, language):
     elif suffix in ("pm", "p"):
         period = "pm"
     else:
-        period = "am" if hour < 12 else "pm"
+        period = "am"
+        if hour < 12:
+            period = "am"
+        else:
+            period = "pm"
 
     if hour > 12:
         hour -= 12
@@ -234,13 +238,14 @@ def replace_time(m, language):
     hour_word = num2words(hour, lang=language)
     if minute == 0:
         return f"{hour_word} {period}"
+    
     minute_word = num2words(minute, lang=language)
     return f"{hour_word} {minute_word} {period}"
 
 
 def normalize_currency(text, language):
-    pattern = r'([£$€])\s?(\d+(?:,\d{3})*(?:\.\d+)?)'
-    return re.sub(pattern, lambda m: replace_currency(m, language), text)
+    curreny_pattern = r'([£$€])\s?(\d+(?:,\d{3})*(?:\.\d+)?)'
+    return re.sub(curreny_pattern, lambda m: replace_currency(m, language), text)
 
 
 def replace_currency(m, language):
@@ -256,8 +261,8 @@ def replace_currency(m, language):
 
 
 def normalize_ordinals(text, language):
-    pattern = r'\b(\d+)(st|nd|rd|th)\b'
-    return re.sub(pattern, lambda m: replace_ordinal(m, language), text)
+    ordinals_pattern = r'\b(\d+)(st|nd|rd|th)\b'
+    return re.sub(ordinals_pattern, lambda m: replace_ordinal(m, language), text)
 
 
 def replace_ordinal(m, language):
@@ -269,8 +274,8 @@ def replace_ordinal(m, language):
 
 
 def normalize_references(text, language):
-    pattern = r'(?i)\b(section|sections|chapter|article|part|version|ref)\s+((?:\d+(?:\.\d+)+(?:\s*(?:,|and)\s*\d+(?:\.\d+)+)*))'
-    text = re.sub(pattern, lambda m: replace_reference_group(m, language), text)
+    ref_pattern = r'(?i)\b(section|sections|chapter|article|part|version|ref)\s+((?:\d+(?:\.\d+)+(?:\s*(?:,|and)\s*\d+(?:\.\d+)+)*))'
+    text = re.sub(ref_pattern, lambda m: replace_reference_group(m, language), text)
     text = re.sub(r'(\()(\d+(?:\.\d+)+)(\))', lambda m: f"({speak_reference_chain(m.group(2), language)})", text)
     return text
 
@@ -279,7 +284,11 @@ def replace_reference_group(m, language):
     keyword = m.group(1)
     refs_str = m.group(2)
     refs = re.split(r'\s*(?:,|and)\s*', refs_str)
-    spoken_refs = [speak_reference_chain(r, language) for r in refs]
+    spoken_refs = []
+    for r in refs:
+        spoken_ref = speak_reference_chain(r, language)
+        spoken_refs.append(spoken_ref)
+
     if len(spoken_refs) > 1:
         spoken = ", ".join(spoken_refs[:-1]) + " and " + spoken_refs[-1]
     else:
@@ -302,7 +311,7 @@ def speak_reference_chain(ref, language):
 if __name__ == "__main__":
     normalizer = TextNormalizer(language="en")
     script_dir = os.path.dirname(os.path.abspath(__file__)) 
-    file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test2.md"))
+    file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test.md"))
     
     with open(file,"r",encoding="utf-8") as f: 
         text = f.read()
