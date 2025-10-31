@@ -1,0 +1,312 @@
+import os
+import re
+from num2words import num2words
+from datetime import datetime
+
+
+class TextNormalizer:
+    def __init__(self, language="en"):
+        self.language = language
+
+    def normalize(self, text):
+        text = normalize_dates(text, self.language)
+        text = normalize_numbers(text, self.language)
+        text = normalize_percentages(text, self.language)
+        text = normalize_currency(text, self.language)
+        text = normalize_references(text, self.language)
+        text = normalize_time(text, self.language)
+        text = normalize_ordinals(text, self.language)
+        return text
+
+
+
+def normalize_numbers(text, language):
+    text = re.sub(r'\b(\d{3,4})s\b', lambda m: replace_decade(m, language), text)
+    text = re.sub(r'\b\d+(?:,\d{3})*(?:\.\d+)*\b', lambda m: replace_number(m, language), text)
+
+    return text
+
+
+def normalize_percentages(text, language):
+    percent_pattern = r'\b(\d+(?:\.\d+)?)\s? %'
+    matches = list(re.finditer(percent_pattern, text))
+    if not matches:
+        return text
+
+    result = text
+    for match in reversed(matches):
+        number_str = match.group(1)
+
+        if "." in number_str:
+            left, right = number_str.split(".")
+            try:
+                left_word = num2words(int(left), lang=language)
+            except Exception:
+                continue
+
+            right_digits = []
+            for d in right:
+                if d.isdigit():
+                    right_digits.append(d)
+            right_word_parts = []
+            for d in right_digits:
+                right_word_parts.append(num2words(int(d), lang=language))
+
+            right_word = " ".join(right_word_parts)
+            replacement = f"{left_word} point {right_word} percent"
+        else:
+            try:
+                num_word = num2words(int(number_str), lang=language)
+            except Exception:
+                continue
+            replacement = f"{num_word} percent"
+
+        start, end = match.span()
+        result = result[:start] + replacement + result[end:]
+
+    return result
+
+
+
+def replace_number(m, language):
+    raw = m.group()
+    cleaned = raw.replace(',', '')
+
+    if re.fullmatch(r'pi|π|Pi|PI|phi|Φ|Phi|e', raw):
+        return raw
+
+    # decimal numbers
+    if "." in cleaned:
+        parts = cleaned.split(".")
+        try:
+            left = num2words(int(parts[0]), lang=language)
+        except Exception:
+            return raw
+
+        right_parts = []
+        for p in parts[1:]:
+            if p.isdigit():
+                right_parts.append(num2words(int(p), lang=language))
+            else:
+                right_parts.append(p)
+
+        right_text = " point ".join(right_parts)
+        return f"{left} point {right_text}"
+
+
+
+    if not cleaned.isdigit():
+        return raw
+
+    val = int(cleaned)
+    if 1000 <= val <= 2099:
+        return year_to_words(val, language)
+
+    return num2words(val, lang=language)
+
+
+def year_to_words(num, language):
+    if num == 2000:
+        return num2words(num)
+
+    if 2001 <= num <= 2009:
+        # the right spoken way: 
+        return f"{num2words(2000)} and {num2words(num % 100, lang=language)}"
+
+    if 1000 <= num <= 2099:
+        first = num // 100  
+        last = num % 100
+        first_part = num2words(first, lang=language)
+        if last == 0:
+            return f"{first_part} hundred"
+        last_part = num2words(last, lang=language)
+        return f"{first_part} {last_part}"
+
+    return num2words(num, lang=language)
+
+
+def replace_decade(m, language):
+    num = int(m.group(1))
+
+    # years lke: 1500s, 1900s etc
+    if num % 100 == 0:
+        century = num // 100
+        return f"{num2words(century, lang=language)} hundreds"
+    # years like: 1960, 1980 etc 
+    if 1000 <= num <= 2099 and num % 10 == 0:
+        century = num // 100
+        decade = num % 100
+        century_word = num2words(century, lang=language)
+        decade_word = num2words(decade, lang=language)
+
+        if decade_word.endswith("y"):
+            decade_word = decade_word[:-1] + "ies"
+
+        elif not decade_word.endswith("s"):
+            decade_word += "s"
+
+        if num == 2000:
+            return num2words(num)
+        
+        decade_word = decade_word.rstrip("s") + "s"
+        return f"{century_word} {decade_word}"
+
+    return num2words(num, lang=language)
+
+
+def normalize_dates(text, language):
+    date_pattern = r'\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b'
+
+    return re.sub(date_pattern, lambda m: replace_date_if_valid(text, m, language), text)
+
+
+def replace_date_if_valid(full_text, m, language):
+    start, _ = m.span()
+    before = full_text[max(0, start - 25):start]
+    
+    # if its not a date: 
+    if should_skip_date(before):
+        return m.group()
+    return replace_date(m, language)
+
+
+def should_skip_date(before_text):
+    skip_words = [
+        "section", "sections", "chapter", "version", "part",
+        "article", "page", "figure", "ref", "reference"
+    ]
+    for w in skip_words:
+        if re.search(rf'\b{w}\s*$', before_text, re.IGNORECASE):
+            return True
+        
+    if re.search(r'[\(\[\{]\s*$', before_text):
+        return True
+    
+    if re.search(r'\b(section|sections)\b', before_text, re.IGNORECASE):
+        return True
+    
+    return False
+
+
+def replace_date(m, language):
+    d, mth, y = m.groups()
+    first, second = int(d), int(mth)
+
+    if first > 12:
+        day, month = first, second
+    else:
+        day, month = second, first
+
+    if len(y) == 2:
+        y = "20" + y if int(y) < 50 else "19" + y
+
+    try:
+        date_obj = datetime.strptime(f"{day}-{month}-{y}", "%d-%m-%Y")
+    except ValueError:
+        return m.group()
+
+    day_word = num2words(date_obj.day, to="ordinal", lang=language)
+    month_word = date_obj.strftime("%B")
+    year_word = year_to_words(date_obj.year, language)
+    return f"{day_word} of {month_word} {year_word}"
+
+
+def normalize_time(text, language):
+    pattern = r'\b(\d{1,2}):(\d{2})(\s?[ap]\.?m\.?)?\b'
+    return re.sub(pattern, lambda m: replace_time(m, language), text)
+
+
+def replace_time(m, language):
+    hour = int(m.group(1))
+    minute = int(m.group(2))
+    suffix = m.group(3).strip().replace(".", "").lower() if m.group(3) else ""
+
+    if suffix in ("am", "a"):
+        period = "am"
+    elif suffix in ("pm", "p"):
+        period = "pm"
+    else:
+        period = "am" if hour < 12 else "pm"
+
+    if hour > 12:
+        hour -= 12
+
+    hour_word = num2words(hour, lang=language)
+    if minute == 0:
+        return f"{hour_word} {period}"
+    minute_word = num2words(minute, lang=language)
+    return f"{hour_word} {minute_word} {period}"
+
+
+def normalize_currency(text, language):
+    pattern = r'([£$€])\s?(\d+(?:,\d{3})*(?:\.\d+)?)'
+    return re.sub(pattern, lambda m: replace_currency(m, language), text)
+
+
+def replace_currency(m, language):
+    symbol, amount = m.groups()
+    try:
+        amount_num = float(amount.replace(',', ''))
+        amount_text = num2words(amount_num, lang=language)
+    except Exception:
+        return m.group()
+    symbol_map = {'£': 'pounds', '$': 'dollars', '€': 'euros'}
+    currency_word = symbol_map.get(symbol, '')
+    return f"{amount_text} {currency_word}".strip()
+
+
+def normalize_ordinals(text, language):
+    pattern = r'\b(\d+)(st|nd|rd|th)\b'
+    return re.sub(pattern, lambda m: replace_ordinal(m, language), text)
+
+
+def replace_ordinal(m, language):
+    num = m.group(1)
+    try:
+        return num2words(int(num), to='ordinal', lang=language)
+    except Exception:
+        return m.group()
+
+
+def normalize_references(text, language):
+    pattern = r'(?i)\b(section|sections|chapter|article|part|version|ref)\s+((?:\d+(?:\.\d+)+(?:\s*(?:,|and)\s*\d+(?:\.\d+)+)*))'
+    text = re.sub(pattern, lambda m: replace_reference_group(m, language), text)
+    text = re.sub(r'(\()(\d+(?:\.\d+)+)(\))', lambda m: f"({speak_reference_chain(m.group(2), language)})", text)
+    return text
+
+
+def replace_reference_group(m, language):
+    keyword = m.group(1)
+    refs_str = m.group(2)
+    refs = re.split(r'\s*(?:,|and)\s*', refs_str)
+    spoken_refs = [speak_reference_chain(r, language) for r in refs]
+    if len(spoken_refs) > 1:
+        spoken = ", ".join(spoken_refs[:-1]) + " and " + spoken_refs[-1]
+    else:
+        spoken = spoken_refs[0]
+    return f"{keyword} {spoken}"
+
+
+def speak_reference_chain(ref, language):
+    parts = ref.split('.')
+    spoken = []
+    for p in parts:
+        try:
+            spoken.append(num2words(int(p), lang=language))
+        except Exception:
+            spoken.append(p)
+    return ".".join(spoken)
+
+
+
+if __name__ == "__main__":
+    normalizer = TextNormalizer(language="en")
+    script_dir = os.path.dirname(os.path.abspath(__file__)) 
+    file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test2.md"))
+    
+    with open(file,"r",encoding="utf-8") as f: 
+        text = f.read()
+    # text = "section 12.12.2012 and 14/04/2005 or 14/04-2018 eller 25.08-2002"
+
+    result = normalizer.normalize(text)
+    print(result)
