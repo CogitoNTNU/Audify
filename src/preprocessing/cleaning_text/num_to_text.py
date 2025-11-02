@@ -1,5 +1,6 @@
 import os
 import re
+import json
 from num2words import num2words
 from datetime import datetime
 
@@ -10,6 +11,7 @@ class TextNormalizer:
 
     def normalize(self, text):
         text = normalize_dates(text, self.language)
+        text = normalize_symbols(text, self.language)
         text = normalize_numbers(text, self.language)
         text = normalize_percentages(text, self.language)
         text = normalize_currency(text, self.language)
@@ -72,7 +74,7 @@ def replace_number(m, language):
     raw = m.group()
     cleaned = raw.replace(',', '')
 
-    if re.fullmatch(r'pi|π|Pi|PI|phi|Φ|Phi|e', raw):
+    if re.fullmatch(r'pi|Pi|PI|phi|Phi|e', raw):
         return raw
 
     # decimal numbers
@@ -306,16 +308,66 @@ def speak_reference_chain(ref, language):
             spoken.append(p)
     return ".".join(spoken)
 
+def remove_links(text):
+    # TODO: remove or find a solution for links, right now they just say link
+    text = re.sub(r'(!?\[[^\]]*\]\()[^)]+(\))', r'\1: link.\2', text)
+    text = re.sub(r'\b(?:https?://|http://|www\.)\S+\b', ': link.', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?\s*[:\-]?\s*(slash\s*){1,5}[a-z0-9\-\.]+(\s*(dot|slash)\s*[a-z0-9\-\.]+)*',': link.',text,flags=re.IGNORECASE)
+    text = re.sub(r'www\s*(dot\s*[a-z0-9\-]+)+',': link.',text,flags=re.IGNORECASE)
+    text = re.sub(r'\blink\s*(slash\s*link)+',': link.',text,flags=re.IGNORECASE)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+def normalize_emails(text):
+    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+    return re.sub(email_pattern, lambda m: f"{m.group(0).split('@', 1)[0]} at {m.group(0).split('@', 1)[1].replace('.', ' dot ')}", text)
+
+def clean_text(text):
+    # Remove characters that are not normally spoken
+    text = re.sub(r"[_\(\)\[\]\{\}\"\'<>]", "", text)
+    return text
+
+def normalize_symbols(text, language):
+    # symbols.json have symbols that need translations
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    symbols_path = os.path.abspath(os.path.join(script_dir, "..", "..", "..", "data", "symbols", "symbols.json"))
+    with open(symbols_path, "r", encoding="utf-8") as f:
+        symbols = json.load(f)
+
+    text = remove_links(text)
+    text = clean_text(text)
+    text = normalize_emails(text)
+
+    def replace_math(match):
+        math_problem = match.group(0)
+        math_problem = math_problem.replace("+", " plus ").replace("-", " minus ").replace("=", " equals ")
+        math_problem = math_problem.replace("*", " times ").replace("/", " divided by ").replace("÷", " divided by ")
+        math_problem = normalize_numbers(math_problem, language)
+        return math_problem
+        
+
+    # Replace math expressions
+    text = re.sub(r'\b\d+\s*[\+\-\*/÷=]\s*\d+(?:\s*[\+\-\*/÷=]\s*\d+)*\b', replace_math, text)
+    text = re.sub(r'(?<!\d)[\*\+\-/=](?!\d)', ' ', text)
+    text = re.sub(r'[\*\+\-/=]{2,}', ' ', text)
+
+    # If math operators are not used in math expressions use symbols.json
+    for symbol, word in symbols.items():
+        if symbol in ['+', '-', '*', '/', '=']:
+            continue
+        text = text.replace(symbol, f" {word} ")
+
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
 
 
-if __name__ == "__main__":
-    normalizer = TextNormalizer(language="en")
-    script_dir = os.path.dirname(os.path.abspath(__file__)) 
-    file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test.md"))
+
+# if __name__ == "__main__":
+#     normalizer = TextNormalizer(language="en")
+#     script_dir = os.path.dirname(os.path.abspath(__file__)) 
+#     file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test.md"))
     
-    with open(file,"r",encoding="utf-8") as f: 
-        text = f.read()
-    # text = "section 12.12.2012 and 14/04/2005 or 14/04-2018 eller 25.08-2002"
-
-    result = normalizer.normalize(text)
-    print(result)
+#     with open(file,"r",encoding="utf-8") as f: 
+#         text = f.read()
+#     result = normalizer.normalize(text)
+#     print(result)
