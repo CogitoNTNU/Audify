@@ -60,7 +60,6 @@ def remove_unwanted_signs(text: str) -> str:
 
     #remove links, have already removed #
     text = re.sub(r"\[.*?\]\(.*?\)", "", text) #remove markdown-style links: [text](url)
-    text = re.sub(r"http\S+|www\S+", "", text) #remove plain URLs (http, https, www)
     text = re.sub(r"\S+@\S+", "", text) #remove email addresses
     return text
 
@@ -441,13 +440,13 @@ def normalize_symbols(text, symbols, language):
 
 
 
-# if __name__ == "__main__":
-#     normalizer = TextNormalizer(language="en")
-#     script_dir = os.path.dirname(os.path.abspath(__file__)) 
-#     file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test.md"))
+if __name__ == "__main__":
+    normalizer = TextNormalizer(language="en")
+    script_dir = os.path.dirname(os.path.abspath(__file__)) 
+    file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/Gx5qb1uHss4.md"))
     
-#     with open(file,"r",encoding="utf-8") as f: 
-#         text = f.read()
-#     # text = "1+2=3"
-#     result = normalizer.normalize(text)
-#     print(result)
+    with open(file,"r",encoding="utf-8") as f: 
+        text = f.read()
+    # text = "1+2=3"
+    result = normalizer.normalize(text)
+    print(result)
