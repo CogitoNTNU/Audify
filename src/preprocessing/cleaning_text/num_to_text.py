@@ -21,6 +21,8 @@ class TextNormalizer:
         self.weekdays = data.get("weekdays", {})
 
     def normalize(self, text):
+        text = normalize_whitespace(text)
+        text = remove_unwanted_signs(text)
         text = normalize_dates(text, self.language)
         text = normalize_time(text, self.language)
         text = normalize_symbols(text, self.symbols, self.language)
@@ -29,9 +31,38 @@ class TextNormalizer:
         text = normalize_references(text, self.language)
         text = normalize_ordinals(text, self.language)
         text = normalize_abbreviations(text,self.months, self.weekdays)
+        
         return text
 
+def normalize_whitespace(text: str) -> str:
+    """
+    Normalizes whitespace:
+    - Removes leading and trailing spaces
+    - Collapses multiple spaces or tabs into one
+    - Collapses multiple line breaks into a single one
+    """
+    text = re.sub(r"[ \t]+", " ", text)   #multiple spaces/tabs -> single space 
+    text = re.sub(r"\s*\n\s*", "\n", text) #clean up around line breaks
+    text = re.sub(r"\n+", "\n", text) #multiple newlines -> one newline
+    text = text.replace("\u00A0", " ")
+    return text.strip() #removes leading/trailing spaces
 
+
+def remove_unwanted_signs(text: str) -> str:
+    """
+    Remove unwanted signs like [1], (kilde), {note}, and stray symbols.
+    """
+    text = re.sub(r"\[\d+\]", "", text)    #remove footnote markers [1]
+    text = re.sub(r"\([^)]*\)", "", text)  #remove text inside parentheses
+    text = re.sub(r"\{[^}]*\}", "", text)  #remove curly brace notes
+    text = re.sub(r"[*_#><`]", "", text)   #remove markdown-style signs
+    text = re.sub(r"\s*\n\s*", "\n", text) #remove spaces/tabs around \n
+
+    #remove links, have already removed #
+    text = re.sub(r"\[.*?\]\(.*?\)", "", text) #remove markdown-style links: [text](url)
+    text = re.sub(r"http\S+|www\S+", "", text) #remove plain URLs (http, https, www)
+    text = re.sub(r"\S+@\S+", "", text) #remove email addresses
+    return text
 
 def normalize_numbers(text, language):
     text = re.sub(r'\b(\d{3,4})s\b', lambda m: replace_decade(m, language), text)
