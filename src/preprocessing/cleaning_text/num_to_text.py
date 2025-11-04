@@ -202,7 +202,7 @@ def replace_date(m, language):
     return f"{day_word} of {month_word} {year_word}"
 
 def normalize_units(text, units):
-    # TODO: capture degrees and compound units, properly
+    # TODO: capture degrees and compound units
     unit_pattern = (r'(\d+(?:\.\d+)?)' r'(?:\s*)' r'([°º]?\s*[a-zA-ZμΩ²³]+(?:\s*/\s*[a-zA-ZμΩ²³]+)*)')
     text = re.sub(unit_pattern, lambda m: replace_unit(text, m, units), text)
 
@@ -211,7 +211,7 @@ def normalize_units(text, units):
         text = re.sub(rf'\b{re.escape(unit)}\b', word, text, flags=re.IGNORECASE)
 
     return text
-
+ 
 
 def replace_unit(full_text, m, units):
     number, unit = m.groups()
