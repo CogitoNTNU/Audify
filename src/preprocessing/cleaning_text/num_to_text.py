@@ -410,13 +410,13 @@ def normalize_symbols(text, symbols, language):
 
 
 
-if __name__ == "__main__":
-    normalizer = TextNormalizer(language="en")
-    script_dir = os.path.dirname(os.path.abspath(__file__)) 
-    file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test.md"))
+# if __name__ == "__main__":
+#     normalizer = TextNormalizer(language="en")
+#     script_dir = os.path.dirname(os.path.abspath(__file__)) 
+#     file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test.md"))
     
-    with open(file,"r",encoding="utf-8") as f: 
-        text = f.read()
-    # text = "1+2=3"
-    result = normalizer.normalize(text)
-    print(result)
+#     with open(file,"r",encoding="utf-8") as f: 
+#         text = f.read()
+#     # text = "1+2=3"
+#     result = normalizer.normalize(text)
+#     print(result)
