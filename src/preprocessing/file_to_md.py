@@ -31,3 +31,4 @@ def file_to_md(input_file: str, output_filename: str):
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(md_content.text_content)
 
+# file_to_md("https://www.theguardian.com/uk-news/2025/nov/02/andrew-to-be-stripped-of-naval-title-says-uk-defence-secretary","test.md")
