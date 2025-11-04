@@ -1,6 +1,11 @@
 {
+    "symbols": { 
     "+": "plus",
     "-": "hyphen",
+    "%": "percent",
+    "$": "dollars",
+    "£": "pounds",
+    "€": "euros",
     "/": "slash",
     "*": "times",
     "=": "equals",
@@ -11,9 +16,9 @@
     "∞": "infinity",
     "&": "and",
     "#": "hashtag",
+    "°c": "degrees celsius",
+    "°f": "degrees fahrenheit",
     "°": "degrees",
-    "℃": "degrees celsius",
-    "℉": "degrees fahrenheit",
     "π": "pi",
     "φ": "phi",
     "α": "alpha",
@@ -25,4 +30,61 @@
     "©": "copyright",
     "®": "registered",
     "™": "trademark"
+    },
+
+    "units": {
+        "h": "hours",
+        "d": "days",
+        "s": "seconds",
+        "y": "years",
+        "Hz": "hertz",
+        "W": "watts",
+        "V": "volts",
+        "J": "joules",
+        "N": "newtons",
+        "g": "grams",
+        "kg": "kilograms",
+        "mg": "milligrams",
+        "l": "liters",
+        "dl": "deciliters",
+        "ml": "milliliters",
+        "cm": "centimeters",
+        "mm": "millimeters",
+        "km/h": "kilometers per hour",
+        "m/s": "meter per second",
+        "km": "kilometers",
+        "kWh": "kilowatt hours",
+        "GWh": "gigawatt hours",
+        "MWh": "megawatt hours"
+
+    },
+
+    "weekdays": { 
+    "Mon": "Monday",
+    "Tue": "Tuesday",
+    "Tues": "Tuesday",
+    "Wed": "Wednesday",
+    "Thu": "Thursday",
+    "Thur": "Thursday",
+    "Fri": "Friday",
+    "Sat": "Saturday",
+    "Sun": "Sunday"
+    },
+
+    "months": { 
+    "jan": "january",
+    "feb": "february",
+    "mar": "march",
+    "apr": "april",
+    "may": "may",
+    "jun": "june",
+    "jul": "july",
+    "aug": "august",
+    "sep": "september",
+    "sept": "september",
+    "oct": "october",
+    "nov": "november",
+    "dec": "december"
+    }
+
 }

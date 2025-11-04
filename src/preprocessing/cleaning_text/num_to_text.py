@@ -9,15 +9,26 @@ class TextNormalizer:
     def __init__(self, language="en"):
         self.language = language
 
+        # symbols.json have symbols and abbreviations that need 'translations'
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        symbols_path = os.path.abspath(os.path.join(script_dir, "..", "..", "..", "data", "symbols", "symbols.json"))
+        with open(symbols_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        self.symbols = data.get("symbols", {})
+        self.units = data.get("units", {})
+        self.months = data.get("months", {})
+        self.weekdays = data.get("weekdays", {})
+
     def normalize(self, text):
         text = normalize_dates(text, self.language)
-        text = normalize_symbols(text, self.language)
-        text = normalize_numbers(text, self.language)
-        text = normalize_percentages(text, self.language)
-        text = normalize_currency(text, self.language)
-        text = normalize_references(text, self.language)
         text = normalize_time(text, self.language)
+        text = normalize_symbols(text, self.symbols, self.language)
+        text = normalize_units(text,self.units)
+        text = normalize_numbers(text, self.language)
+        text = normalize_references(text, self.language)
         text = normalize_ordinals(text, self.language)
+        text = normalize_abbreviations(text,self.months, self.weekdays)
         return text
 
 
@@ -25,50 +36,8 @@ class TextNormalizer:
 def normalize_numbers(text, language):
     text = re.sub(r'\b(\d{3,4})s\b', lambda m: replace_decade(m, language), text)
     text = re.sub(r'\b\d+(?:,\d{3})*(?:\.\d+)*\b', lambda m: replace_number(m, language), text)
-
+    text = re.sub(r'\b([A-Za-z])(\d+)\b', lambda m: f"{m.group(1).upper()} {num2words(int(m.group(2)), lang=language)}", text)
     return text
-
-
-def normalize_percentages(text, language):
-    percent_pattern = r'\b(\d+(?:\.\d+)?)\s? %'
-    matches = list(re.finditer(percent_pattern, text))
-    if not matches:
-        return text
-
-    result = text
-    for match in reversed(matches):
-        number_str = match.group(1)
-
-        if "." in number_str:
-            left, right = number_str.split(".")
-            try:
-                left_word = num2words(int(left), lang=language)
-            except Exception:
-                continue
-
-            right_digits = []
-            for d in right:
-                if d.isdigit():
-                    right_digits.append(d)
-            right_word_parts = []
-            for d in right_digits:
-                right_word_parts.append(num2words(int(d), lang=language))
-
-            right_word = " ".join(right_word_parts)
-            replacement = f"{left_word} point {right_word} percent"
-        else:
-            try:
-                num_word = num2words(int(number_str), lang=language)
-            except Exception:
-                continue
-            replacement = f"{num_word} percent"
-
-        start, end = match.span()
-        result = result[:start] + replacement + result[end:]
-
-    return result
-
-
 
 def replace_number(m, language):
     raw = m.group()
@@ -95,13 +64,12 @@ def replace_number(m, language):
         right_text = " point ".join(right_parts)
         return f"{left} point {right_text}"
 
-
-
     if not cleaned.isdigit():
         return raw
 
     val = int(cleaned)
-    if 1000 <= val <= 2099:
+    context_before = m.string[max(0, m.start() - 10):m.start()].lower()
+    if 1000 <= val <= 2099 and re.search(r'\b(year|in|since|during|by|before|after)\b', context_before):
         return year_to_words(val, language)
 
     return num2words(val, lang=language)
@@ -109,7 +77,7 @@ def replace_number(m, language):
 
 def year_to_words(num, language):
     if num == 2000:
-        return num2words(num)
+        return num2words(num) + "s"
 
     if 2001 <= num <= 2009:
         # the right spoken way: 
@@ -157,9 +125,13 @@ def replace_decade(m, language):
 
 
 def normalize_dates(text, language):
+    # if the date is formated: 2/04/20 or 2-04-20
     date_pattern = r'\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b'
-
-    return re.sub(date_pattern, lambda m: replace_date_if_valid(text, m, language), text)
+    text = re.sub(date_pattern, lambda m: replace_date_if_valid(text, m, language), text)
+    # if the date is formated: 2 apr 2020
+    name_date_pattern = r'\b(\d{1,2})\s+([A-Za-z]{3,9})\.?,?\s+(\d{2,4})\b'
+    text = re.sub(name_date_pattern, lambda m: replace_date(m, language), text)
+    return text
 
 
 def replace_date_if_valid(full_text, m, language):
@@ -173,10 +145,7 @@ def replace_date_if_valid(full_text, m, language):
 
 
 def should_skip_date(before_text):
-    skip_words = [
-        "section", "sections", "chapter", "version", "part",
-        "article", "page", "figure", "ref", "reference"
-    ]
+    skip_words = ["section", "sections", "chapter", "version", "part","article", "page", "figure", "ref", "reference"]
     for w in skip_words:
         if re.search(rf'\b{w}\s*$', before_text, re.IGNORECASE):
             return True
@@ -191,8 +160,28 @@ def should_skip_date(before_text):
 
 
 def replace_date(m, language):
-    d, mth, y = m.groups()
-    first, second = int(d), int(mth)
+    parts = m.groups()
+    d, mth, y = parts[0], parts[1], parts[2]
+
+    # Handle month as text: 2 April 2005
+    if mth.isalpha():
+        month_str = mth.strip().rstrip(".,").capitalize()
+
+        try:
+            day = int(d)
+            year = int(y)
+        except ValueError:
+            return m.group()
+
+        day_word = num2words(day, to="ordinal", lang=language)
+        year_word = year_to_words(year, language)
+        return f"{day_word} of {month_str} {year_word}"
+
+    # Handle number months: 02/04/2005 or 2-4-05
+    try:
+        first, second = int(d), int(mth)
+    except ValueError:
+        return m.group()
 
     if first > 12:
         day, month = first, second
@@ -212,10 +201,73 @@ def replace_date(m, language):
     year_word = year_to_words(date_obj.year, language)
     return f"{day_word} of {month_word} {year_word}"
 
+def normalize_units(text, units):
+    # TODO: capture degrees and compound units, properly
+    unit_pattern = (r'(\d+(?:\.\d+)?)' r'(?:\s*)' r'([°º]?\s*[a-zA-ZμΩ²³]+(?:\s*/\s*[a-zA-ZμΩ²³]+)*)')
+    text = re.sub(unit_pattern, lambda m: replace_unit(text, m, units), text)
+
+    # replace standalone units
+    for unit, word in units.items():
+        text = re.sub(rf'\b{re.escape(unit)}\b', word, text, flags=re.IGNORECASE)
+
+    return text
+
+
+def replace_unit(full_text, m, units):
+    number, unit = m.groups()
+    unit_clean = unit.replace(" ", "").lower()
+    start, end = m.span()
+
+    unit_word = unit_clean
+    context_before = full_text[max(0, start - 30):start].lower()
+    context_after = full_text[end:end + 30].lower()
+
+    # TODO: fix units so that "per" also comes. 
+    if '/' in unit_clean:
+        parts = [p for p in unit_clean.split('/') if p]
+        spoken_parts = []
+        for i, p in enumerate(parts):
+            word = units.get(p, p)
+            if i == len(parts) - 1 and word.endswith('s'):
+                word = word[:-1]
+            spoken_parts.append(word)
+        unit_word = " per ".join(spoken_parts)
+
+
+    # unit 'm' can be meters or minutes
+    if unit_clean == "m":
+        if re.search(r'(h|hour|day|d|min|sec|s|am|pm|duration|after|within)',
+                     context_before + context_after):
+            unit_word = "minutes"
+        elif re.search(r'(cm|mm|km|long|tall|wide|deep|distance|height|length|road)',
+                       context_before + context_after):
+            unit_word = "meters"
+        # defult meter
+        else:
+            unit_word = "meters"
+
+    try:
+        number_text = normalize_numbers(number, "en")
+    except Exception:
+        number_text = number
+
+    return f"{number_text} {unit_word}".strip()
+
+
+def normalize_abbreviations(text, months, weekdays):
+    # Replace month abbreviations
+    for abbr, full in months.items():
+        text = re.sub(rf'\b{re.escape(abbr)}\b', full, text, flags=re.IGNORECASE)
+
+    # Replace weekday abbreviations
+    for abbr, full in weekdays.items():
+        text = re.sub(rf'\b{re.escape(abbr)}\b', full, text, flags=re.IGNORECASE)
+    return text
+
 
 def normalize_time(text, language):
-    pattern = r'\b(\d{1,2}):(\d{2})(\s?[ap]\.?m\.?)?\b'
-    return re.sub(pattern, lambda m: replace_time(m, language), text)
+    time_pattern = r'\b(\d{1,2})[:\.](\d{2})(\s?[ap]\.?m\.?)?\b'
+    return re.sub(time_pattern, lambda m: replace_time(m, language), text)
 
 
 def replace_time(m, language):
@@ -224,19 +276,14 @@ def replace_time(m, language):
     suffix = m.group(3).strip().replace(".", "").lower() if m.group(3) else ""
 
     if suffix in ("am", "a"):
-        period = "am"
+        period = "a m"
     elif suffix in ("pm", "p"):
-        period = "pm"
+        period = "p m"
     else:
-        period = "am"
-        if hour < 12:
-            period = "am"
-        else:
-            period = "pm"
+        period = "a m" if hour < 12 else "p m"
 
     if hour > 12:
         hour -= 12
-
     hour_word = num2words(hour, lang=language)
     if minute == 0:
         return f"{hour_word} {period}"
@@ -244,21 +291,15 @@ def replace_time(m, language):
     minute_word = num2words(minute, lang=language)
     return f"{hour_word} {minute_word} {period}"
 
-
-def normalize_currency(text, language):
+def normalize_currency(text,symbols, language):
     curreny_pattern = r'([£$€])\s?(\d+(?:,\d{3})*(?:\.\d+)?)'
-    return re.sub(curreny_pattern, lambda m: replace_currency(m, language), text)
+    return re.sub(curreny_pattern, lambda m: replace_currency(m, symbols, language), text)
 
 
-def replace_currency(m, language):
+def replace_currency(m, symbols, language):
     symbol, amount = m.groups()
-    try:
-        amount_num = float(amount.replace(',', ''))
-        amount_text = num2words(amount_num, lang=language)
-    except Exception:
-        return m.group()
-    symbol_map = {'£': 'pounds', '$': 'dollars', '€': 'euros'}
-    currency_word = symbol_map.get(symbol, '')
+    currency_word = symbols.get(symbol, "")
+    amount_text = normalize_numbers(amount, language)
     return f"{amount_text} {currency_word}".strip()
 
 
@@ -315,7 +356,6 @@ def remove_links(text):
     text = re.sub(r'https?\s*[:\-]?\s*(slash\s*){1,5}[a-z0-9\-\.]+(\s*(dot|slash)\s*[a-z0-9\-\.]+)*',': link.',text,flags=re.IGNORECASE)
     text = re.sub(r'www\s*(dot\s*[a-z0-9\-]+)+',': link.',text,flags=re.IGNORECASE)
     text = re.sub(r'\blink\s*(slash\s*link)+',': link.',text,flags=re.IGNORECASE)
-    text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
 def normalize_emails(text):
@@ -325,49 +365,58 @@ def normalize_emails(text):
 def clean_text(text):
     # Remove characters that are not normally spoken
     text = re.sub(r"[_\(\)\[\]\{\}\"\'<>]", "", text)
-    return text
-
-def normalize_symbols(text, language):
-    # symbols.json have symbols that need translations
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    symbols_path = os.path.abspath(os.path.join(script_dir, "..", "..", "..", "data", "symbols", "symbols.json"))
-    with open(symbols_path, "r", encoding="utf-8") as f:
-        symbols = json.load(f)
-
-    text = remove_links(text)
-    text = clean_text(text)
-    text = normalize_emails(text)
-
-    def replace_math(match):
-        math_problem = match.group(0)
-        math_problem = math_problem.replace("+", " plus ").replace("-", " minus ").replace("=", " equals ")
-        math_problem = math_problem.replace("*", " times ").replace("/", " divided by ").replace("÷", " divided by ")
-        math_problem = normalize_numbers(math_problem, language)
-        return math_problem
-        
-
-    # Replace math expressions
-    text = re.sub(r'\b\d+\s*[\+\-\*/÷=]\s*\d+(?:\s*[\+\-\*/÷=]\s*\d+)*\b', replace_math, text)
-    text = re.sub(r'(?<!\d)[\*\+\-/=](?!\d)', ' ', text)
-    text = re.sub(r'[\*\+\-/=]{2,}', ' ', text)
-
-    # If math operators are not used in math expressions use symbols.json
-    for symbol, word in symbols.items():
-        if symbol in ['+', '-', '*', '/', '=']:
-            continue
-        text = text.replace(symbol, f" {word} ")
-
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
+def replace_math(match, language):
+    math_problem = match.group(0)
+    math_problem = math_problem.replace("+", " plus ").replace("-", " minus ").replace("=", " equals ")
+    math_problem = math_problem.replace("*", " times ").replace("/", " divided by ").replace("÷", " divided by ")
+    math_problem = re.sub(r'\s+', ' ', math_problem).strip()
+    math_problem = re.sub(r'\b\d+\b', lambda m: num2words(int(m.group()), lang=language), math_problem)
+    return math_problem.strip()
+
+def normalize_symbols(text, symbols, language):
+    text = remove_links(text)
+    text = clean_text(text)
+    text = normalize_emails(text)
+    text = normalize_currency(text, symbols, language)
+
+    text = re.sub(
+        r'(\d+(?:\.\d+)?)\s*%',
+        lambda m: f"{normalize_numbers(m.group(1), language)} percent",
+        text
+    )
+    # also number-words already normalized but still followed by %
+    text = re.sub(r'\s*%', " percent", text)
+
+    # Replace math expressions
+    text = re.sub(
+        r'(?<!\w)(\d+(?:\s*[\+\-\*/÷=]\s*\d+)+)(?!\w)',
+        lambda m: replace_math(m, language),
+        text,
+    )
+    text = re.sub(r'(?<!\d)([*\/÷])(?!\d)', ' ', text)
+
+    # Symbol replacements from symbols.json
+    for symbol, word in symbols.items():
+        if symbol in ['+', '-', '*', '/', '=']:
+            continue
+        text = re.sub(re.escape(symbol), f" {word} ", text, flags=re.IGNORECASE)
+
+    text = clean_text(text)
+    return text
 
 
-# if __name__ == "__main__":
-#     normalizer = TextNormalizer(language="en")
-#     script_dir = os.path.dirname(os.path.abspath(__file__)) 
-#     file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test.md"))
+
+
+if __name__ == "__main__":
+    normalizer = TextNormalizer(language="en")
+    script_dir = os.path.dirname(os.path.abspath(__file__)) 
+    file = os.path.abspath(os.path.join(script_dir, "../../../data/markdown/test.md"))
     
-#     with open(file,"r",encoding="utf-8") as f: 
-#         text = f.read()
-#     result = normalizer.normalize(text)
-#     print(result)
+    with open(file,"r",encoding="utf-8") as f: 
+        text = f.read()
+    # text = "1+2=3"
+    result = normalizer.normalize(text)
+    print(result)
