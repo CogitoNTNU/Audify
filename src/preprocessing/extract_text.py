@@ -64,37 +64,16 @@ def extract_text(
         if len(text) > pdf_text_min_chars:
             _log("extract_text: used PDF text extractor")
             return text
-        # If OCR fallback is disabled (heavy), return the extracted text (even if short)
-        if not enable_pdf_ocr:
-            _log("extract_text: PDF OCR disabled; returning extracted text without OCR")
+        # If the extracted selectable text is short, we won't run OCR here.
+        # Historically this code attempted a heavy OCR fallback (pytesseract/Pillow).
+        # That functionality has been removed to keep the code lightweight and
+        # avoid depending on heavy native libraries during tests/runtime.
+        if len(text) > pdf_text_min_chars:
+            _log("extract_text: used PDF text extractor")
             return text
 
-        # fall back to OCR per page
-        _log("extract_text: falling back to PDF OCR")
-        try:
-            import pytesseract
-            from PIL import Image
-        except ImportError as exc:  # pragma: no cover - environment dependent
-            raise ImportError(
-                "pytesseract and Pillow are required for PDF OCR fallback. Install with `pip install pytesseract pillow`."
-            ) from exc
-        ocr_text = []
-        for page_number, page in enumerate(pdf, start=1):
-            try:
-                pix = page.get_pixmap()
-                img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-                # wrap per-page OCR to allow skipping a corrupt page
-                try:
-                    page_text = pytesseract.image_to_string(img)
-                except Exception as e:  # pragma: no cover - environment dependent
-                    _log(f"extract_text: OCR failed for PDF page {page_number}: {e}")
-                    page_text = ""
-                ocr_text.append(page_text)
-            except Exception as e:  # pragma: no cover - environment dependent
-                _log(f"extract_text: failed to render PDF page {page_number} to image: {e}")
-                # continue with other pages rather than failing completely
-                continue
-        return "\n".join(ocr_text)
+        _log("extract_text: PDF OCR fallback removed; returning extracted text (may be short)")
+        return text
 
     #Website or other files handled by markitdown
     elif parsed.scheme in ("http", "https") or lower_source.endswith((".docx", ".html")):
@@ -117,32 +96,11 @@ def extract_text(
                 f"Expected markdown output at {md_path}. `file_to_md` may have failed to create it."
             )
 
-    #Image(OCR)
+    # Image inputs: OCR functionality removed. Log and raise to make the
+    # behavior explicit for callers/tests instead of attempting heavy OCR.
     elif lower_source.endswith(image_extensions):
-        _log("extract_text: using image OCR")
-        try:
-            import pytesseract
-            from PIL import Image
-        except ImportError as exc:  # pragma: no cover - environment dependent
-            raise ImportError(
-                "pytesseract and Pillow are required for image OCR. Install with `pip install pytesseract pillow`."
-            ) from exc
-        # Opening an image can fail for corrupt files; handle that gracefully
-        try:
-            img = Image.open(input_source)
-            try:
-                return pytesseract.image_to_string(img)
-            finally:
-                # close when supported (Pillow Image has a close method); ignore otherwise
-                try:
-                    close_fn = getattr(img, "close", None)
-                    if callable(close_fn):
-                        close_fn()
-                except Exception:
-                    pass
-        except (OSError, IOError) as e:  # pragma: no cover - file dependent
-            _log(f"extract_text: failed to open/read image {input_source}: {e}")
-            raise ValueError(f"Cannot open or read image: {input_source}") from e
+        _log("extract_text: image OCR is disabled in this build")
+        raise ValueError(f"Image OCR is disabled: {input_source}")
 
     #Plain text file
     elif input_source.lower().endswith(".txt"):
@@ -151,6 +109,7 @@ def extract_text(
             return f.read()
 
     else:
+        _log(f"extract_text: unsupported input type: {input_source}")
         raise ValueError(f"Unsupported input type: {input_source}")
 
 

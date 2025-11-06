@@ -169,25 +169,11 @@ def test_pdf_ocr_fallback(tmp_path):
     fake_fitz = types.ModuleType("fitz")
     fake_fitz.open = lambda path: FakePDF([PageSmall(), PageSmall()])
 
-    # pytesseract and PIL.Image
-    fake_pyt = types.ModuleType("pytesseract")
-    fake_pyt.image_to_string = lambda img: "OCR PAGE TEXT"
-
-    fake_PIL = types.ModuleType("PIL")
-    fake_Image = types.SimpleNamespace()
-
-    def frombytes(mode, size, samples):
-        return object()
-
-    fake_Image.frombytes = frombytes
-    fake_PIL.Image = fake_Image
-
+    # OCR has been removed from extract_text; load with only fitz fake
     mod = _load_module(tmp_path, {
         "file_to_md": fake_file,
         "video_to_md": fake_video,
         "fitz": fake_fitz,
-        "pytesseract": fake_pyt,
-        "PIL": fake_PIL,
     })
 
     pdf_path = str(tmp_path / "ocr.pdf")
@@ -195,8 +181,6 @@ def test_pdf_ocr_fallback(tmp_path):
 
     # ensure runtime imports use our fakes
     sys.modules["fitz"] = fake_fitz
-    sys.modules["pytesseract"] = fake_pyt
-    sys.modules["PIL"] = fake_PIL
 
     # track that get_text was called to confirm fallback decision
     called = {"get_text": 0}
@@ -209,7 +193,9 @@ def test_pdf_ocr_fallback(tmp_path):
     PageSmall.get_text = counted_get_text
 
     out = mod.extract_text(pdf_path)
-    assert "OCR PAGE TEXT" in out
+    # Since OCR was removed, the returned text should be the selectable text
+    # (which in this test is empty); but get_text must have been called.
+    assert out == ""
     assert called["get_text"] > 0
 
 
@@ -219,39 +205,22 @@ def test_image_ocr_and_logger(tmp_path):
     fake_file.file_to_md = lambda src, out: None
     fake_video = types.ModuleType("video_to_md")
     fake_video.youtube_to_markdown = lambda url: None
-
-    fake_pyt = types.ModuleType("pytesseract")
-    fake_pyt.image_to_string = lambda img: "IMAGE OCR TEXT"
-
-    fake_PIL = types.ModuleType("PIL")
-    fake_Image = types.SimpleNamespace()
-
-    def open_fn(path):
-        return object()
-
-    fake_Image.open = open_fn
-    fake_PIL.Image = fake_Image
-
     messages = []
 
     def logger(msg):
         messages.append(msg)
 
-    mod = _load_module(tmp_path, {
-        "file_to_md": fake_file,
-        "video_to_md": fake_video,
-        "pytesseract": fake_pyt,
-        "PIL": fake_PIL,
-    })
+    # OCR removed; module need only basic fake modules
+    mod = _load_module(tmp_path, {"file_to_md": fake_file, "video_to_md": fake_video})
 
     img_path = tmp_path / "pic.jpg"
     img_path.write_bytes(b"\x89PNG\r\n")
 
-    # ensure runtime imports use our fakes
-    sys.modules["pytesseract"] = fake_pyt
-    sys.modules["PIL"] = fake_PIL
+    import pytest
 
-    out = mod.extract_text(str(img_path), logger=logger)
-    assert "IMAGE OCR TEXT" in out
-    # logger should have been called at least once and contain 'image OCR' message
-    assert any("image OCR" in (m.lower()) or "using image ocr" in (m.lower()) for m in messages)
+    # Expect a ValueError because image OCR is disabled; logger should have
+    # received a message mentioning that image OCR is disabled.
+    with pytest.raises(ValueError):
+        mod.extract_text(str(img_path), logger=logger)
+
+    assert any("image ocr" in (m.lower()) or "disabled" in (m.lower()) for m in messages)
