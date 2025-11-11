@@ -1,0 +1,68 @@
+## **Step-by-step clarification**
+
+### **1. Preprocess**
+
+* **Input:** WAV files
+* **Output:** Mel-spectrograms
+* Purpose: Convert raw audio into a representation the neural networks can work with. Mel-spectrograms are commonly used because they capture the perceptually relevant features of speech.
+
+---
+
+### **2. Encoder (Latent Content / Phonetic Content)**
+
+* **Input:** Mel-spectrogram of **source speech**
+* **Output:** Latent content (speaker-independent representation of **what is being said**)
+* **What it encodes:** The **phonetic content** — basically, “the words and prosody,” not the speaker’s timbre.
+* **Important:** It does **not encode the voice of the speaker**. It’s purely “what is being said.”
+
+> So the encoder is **not encoding what to replace**; it’s encoding the **content that will be kept**.
+
+---
+
+### **3. Speaker Encoder**
+
+* **Input:** A short reference audio of the **target speaker**
+* **Output:** Speaker embedding (vector representing the speaker’s identity)
+* **What it encodes:** Voice characteristics — timbre, pitch range, speaking style
+* **Important:** It tells the decoder **how the content should sound**, not what content to say.
+
+> Think of it as a “style vector” for the target speaker.
+
+---
+
+### **4. Decoder (Voice Converter)**
+
+* **Input:** Latent content (from source) + speaker embedding (from target)
+* **Output:** Converted mel-spectrogram
+* **What it does:**
+
+  * Combines “what to say” (latent content) with “how it should sound” (speaker embedding).
+  * Generates a **mel-spectrogram of the source content spoken in the target speaker’s voice.**
+
+> The decoder **does the actual conversion**. It doesn’t just copy; it synthesizes the source content in a new voice.
+
+---
+
+### **5. Vocoder**
+
+* **Input:** Converted mel-spectrogram
+* **Output:** Waveform (audio)
+* **Function:** Turns mel features into an actual audio waveform.
+* Common choices: **HiFi-GAN, MelGAN, WaveRNN**
+
+---
+
+
+### **TL;DR — Simplified analogy**
+
+* **Encoder:** “What is being said”
+* **Speaker Encoder:** “How it should sound”
+* **Decoder:** “Says the same content in the target speaker’s voice”
+* **Vocoder:** “Turns the result into real sound waves”
+
+------------------------------------------------------------------
+
+* Encoder encodes **the content to keep** (what is said).
+* Speaker encoder encodes **the style/voice that will replace the source speaker**.
+* Decoder merges them into a new mel.
+* Vocoder produces the final waveform.
