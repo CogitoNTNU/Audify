@@ -3,16 +3,25 @@ import requests
 
 API_URL = "http://127.0.0.1:8000/tts/"
 
-def call_tts(text, file, save_audio):
+def call_tts(text, file, link, voice_file, chunk_size, save_audio):
     files = {}
     data = {"save": str(save_audio).lower()}
 
+    # Priority: file > text > link
     if file is not None:
         files["file"] = (file.name, file.read(), "text/plain")
     elif text:
         data["text"] = text
+    elif link:
+        data["link"] = link
     else:
-        return "Please provide either text or a file.", None
+        return "Please provide text, file, or link.", None
+
+    # Optional voice cloning
+    if voice_file is not None:
+        files["voice"] = (voice_file.name, voice_file.read(), "audio/wav")
+    if chunk_size is not None and chunk_size > 0:
+        data["chunk_size"] = str(chunk_size)
 
     response = requests.post(API_URL, data=data, files=files if files else None)
 
@@ -24,29 +33,42 @@ def call_tts(text, file, save_audio):
     else:
         return f"❌ Error {response.status_code}: {response.text}", None
 
+
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown(
         """
         # 🎙️ Audify TTS Generator
-        Convert text to speech using SpeechT5 and FastAPI.  
-        Upload a `.txt` file or type directly. Choose whether to save the audio to the server.
+        Convert text to speech using SpeechT5.  
+        Upload a `.txt` file, type directly, or paste a link.  
+        Optionally provide a `.wav` file for **voice cloning** and set chunk size.  
+        Choose whether to save the audio to the server.
         """
     )
 
     with gr.Row():
         with gr.Column(scale=2):
-            text_input = gr.Textbox(label="📝 Text Input", placeholder="Type something...", lines=4)
-            file_input = gr.File(label="📄 Upload .txt File (optional)", file_types=[".txt"])
+            # Section 1: Input
+            gr.Markdown("## 📝 What should the audio say?")
+            text_input = gr.Textbox(label="Text Input", placeholder="Type something...", lines=4)
+            file_input = gr.File(label="Upload .txt File (optional)", file_types=[".txt"])
+            link_input = gr.Textbox(label="Link Input (optional)", placeholder="Paste a URL here...")
             save_checkbox = gr.Checkbox(label="💾 Save audio to server", value=False)
-            submit_btn = gr.Button("🔊 Generate Speech")
+
+            # Section 2: Voice Cloning
+            gr.Markdown("## 🎤 Voice Cloning Options")
+            voice_input = gr.File(label="Upload Voice (.wav) for Cloning (optional)", file_types=[".wav"])
+            chunk_input = gr.Number(label="Chunk Size (optional)", value=0, precision=0)
 
         with gr.Column(scale=1):
+            # Section 3: Output
+            gr.Markdown("## 🎧 Output")
             status_output = gr.Textbox(label="Status", interactive=False)
-            audio_output = gr.Audio(label="🎧 Generated Audio", type="numpy")
+            audio_output = gr.Audio(label="Generated Audio", type="numpy")
+            submit_btn = gr.Button("🔊 Generate Speech")
 
     submit_btn.click(
         fn=call_tts,
-        inputs=[text_input, file_input, save_checkbox],
+        inputs=[text_input, file_input, link_input, voice_input, chunk_input, save_checkbox],
         outputs=[status_output, audio_output]
     )
 
