@@ -1,9 +1,16 @@
 import gradio as gr
 import requests
+import sys
+import os
+import tempfile
+import soundfile as sf
+
+sys.path.append(os.path.abspath("src/voice_cloning"))
+from voice_cloning.voice_clone import voice_cloning
 
 API_URL = "http://127.0.0.1:8000/tts/"
 
-def call_tts(text, file, link, voice_file, chunk_size, save_audio):
+def call_tts(text, file, link, save_audio):
     files = {}
     data = {"save": str(save_audio).lower()}
 
@@ -17,12 +24,6 @@ def call_tts(text, file, link, voice_file, chunk_size, save_audio):
     else:
         return "Please provide text, file, or link.", None
 
-    # Optional voice cloning
-    if voice_file is not None:
-        files["voice"] = (voice_file.name, voice_file.read(), "audio/wav")
-    if chunk_size is not None and chunk_size > 0:
-        data["chunk_size"] = str(chunk_size)
-
     response = requests.post(API_URL, data=data, files=files if files else None)
 
     if response.status_code == 200:
@@ -32,6 +33,35 @@ def call_tts(text, file, link, voice_file, chunk_size, save_audio):
             return response.json().get("message", "✅ Audio saved to server."), None
     else:
         return f"❌ Error {response.status_code}: {response.text}", None
+
+
+import numpy as np
+import soundfile as sf
+
+def call_clone(voice_file, original_audio, chunk_size):
+    # Save original audio (numpy) to temp WAV
+    if isinstance(original_audio, tuple):
+        sr, audio_np = original_audio
+    else:
+        sr = 16000
+        audio_np = original_audio
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        sf.write(tmp.name, audio_np, sr)
+        tmp_path = tmp.name
+
+    # Perform voice cloning
+    voice_cloning(voice_file, tmp_path, target_sec=chunk_size)
+
+    # The voice_cloning function produces 'final_product.wav'
+    final_path = "final_product.wav"
+
+    # Load the WAV to numpy for Gradio audio component
+    cloned_audio, cloned_sr = sf.read(final_path, dtype="int16")
+    
+    # Return status message + numpy array
+    return f"✅ Cloning done! Saved as {final_path}", (cloned_sr, cloned_audio)
+
 
 
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
@@ -57,7 +87,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
             # Section 2: Voice Cloning
             gr.Markdown("## 🎤 Voice Cloning Options")
             voice_input = gr.File(label="Upload Voice (.wav) for Cloning (optional)", file_types=[".wav"])
-            chunk_input = gr.Number(label="Chunk Size (optional)", value=0, precision=0)
+            chunk_input = gr.Number(label="Chunk Size (optional)", value=15, precision=0)
 
         with gr.Column(scale=1):
             # Section 3: Output
@@ -66,10 +96,22 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
             audio_output = gr.Audio(label="Generated Audio", type="numpy")
             submit_btn = gr.Button("🔊 Generate Speech")
 
+            # Section 3: Output
+            gr.Markdown("## 🎧 Cloned Output")
+            clone_status = gr.Textbox(label="Status", interactive=False)
+            clone_output = gr.Audio(label="Cloned Audio", type="numpy")
+            clone_btn = gr.Button("🔊 Clone Speech")
+
     submit_btn.click(
         fn=call_tts,
-        inputs=[text_input, file_input, link_input, voice_input, chunk_input, save_checkbox],
+        inputs=[text_input, file_input, link_input, save_checkbox],
         outputs=[status_output, audio_output]
+    )
+
+    clone_btn.click(
+        fn=call_clone,
+        inputs=[voice_input, audio_output, chunk_input],
+        outputs=[status_output, clone_output]
     )
 
 demo.launch()

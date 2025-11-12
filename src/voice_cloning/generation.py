@@ -12,13 +12,13 @@ import tqdm
 from transformers import BertTokenizer
 from huggingface_hub import hf_hub_download
 
-from model import GPTConfig, GPT
-from model_fine import FineGPT, FineGPTConfig
-from settings import MODELS_DIR, USE_SMALL_MODELS, GLOBAL_ENABLE_MPS, OFFLOAD_CPU
+from .model import GPTConfig, GPT
+from .model_fine import FineGPT, FineGPTConfig
+from .settings import MODELS_DIR, USE_SMALL_MODELS, GLOBAL_ENABLE_MPS, OFFLOAD_CPU
 import os
 import logging
 
-from voice_embedding import VoiceEmbedding
+from .voice_embedding import VoiceEmbedding
 
 if (
         torch.cuda.is_available() and

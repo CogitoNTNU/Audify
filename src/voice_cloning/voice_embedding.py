@@ -5,7 +5,7 @@ from typing import Union, Optional
 
 import numpy as np
 
-from settings import EMBEDDINGS_DIR, DEFAULT_EMBEDDINGS_DIR
+from .settings import EMBEDDINGS_DIR, DEFAULT_EMBEDDINGS_DIR
 
 
 class VoiceEmbedding:

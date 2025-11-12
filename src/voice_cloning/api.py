@@ -2,7 +2,7 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 
-from generation import codec_decode, generate_coarse, generate_fine, generate_text_semantic
+from .generation import codec_decode, generate_coarse, generate_fine, generate_text_semantic
 
 
 def text_to_semantic(

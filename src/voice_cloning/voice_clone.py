@@ -3,8 +3,8 @@ import re
 import shutil
 import torchaudio
 import torch
-from voice2embedding import voice2embedding
-from voice2voice import voice2voice
+from .voice2embedding import voice2embedding
+from .voice2voice import voice2voice
 from media_toolkit import AudioFile
 from pydub import AudioSegment  # only used for input2 splitting
 
@@ -13,7 +13,7 @@ def voice_cloning(input1_path="input1.wav", input2_path="input2.wav", target_sec
     # -------------------------
     # Monkey patch HuBERT loader
     # -------------------------
-    import model_downloader
+    from . import model_downloader
 
     orig_func = model_downloader.get_hubert_manager_and_model
 

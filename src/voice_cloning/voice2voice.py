@@ -5,10 +5,10 @@ import torchaudio
 from encodec.utils import convert_audio
 import numpy as np
 
-import utils as utils
-from api import semantic_to_waveform
-from settings import MODELS_DIR
-import model_downloader
+from . import utils as utils
+from .api import semantic_to_waveform
+from .settings import MODELS_DIR
+from . import model_downloader
 # from model_downloader import get_hubert_manager_and_model, make_sure_models_are_downloaded
 
 

@@ -1,15 +1,15 @@
 import os.path
 
-from generation import preload_models, load_codec_model
-from settings import MODELS_DIR, USE_GPU
-import utils
+from .generation import preload_models, load_codec_model
+from .settings import MODELS_DIR, USE_GPU
+from . import utils
 
 def get_hubert_manager_and_model(install_path: str = None, hubert_model_name: str = 'hubert_base_ls960.pth'):
     # Imports need to be here to avoid "circular" import error.
     # The reason in particular is not as clear. But works this way.
-    from custom_tokenizer import CustomTokenizer
-    from hubert_manager import HuBERTManager
-    from pre_kmeans_hubert import CustomHubert
+    from .custom_tokenizer import CustomTokenizer
+    from .hubert_manager import HuBERTManager
+    from .pre_kmeans_hubert import CustomHubert
 
     if install_path is None:
         install_path = MODELS_DIR

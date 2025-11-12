@@ -13,7 +13,7 @@ import torch
 from torch import nn, optim
 from torch.serialization import MAP_LOCATION
 
-import utils
+from . import utils
 
 
 class CustomTokenizer(nn.Module):

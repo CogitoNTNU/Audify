@@ -3,10 +3,10 @@ from encodec.utils import convert_audio
 import torchaudio
 import torch
 
-from voice_embedding import VoiceEmbedding
+from .voice_embedding import VoiceEmbedding
 # from model_downloader import get_hubert_manager_and_model
-import model_downloader
-import utils
+from . import model_downloader
+from . import utils
 
 
 def voice2embedding(audio_file: BytesIO | str, voice_name: str = "new_speaker"):
