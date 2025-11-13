@@ -16,9 +16,9 @@
 <details> 
 <summary><b>📋 Table of contents </b></summary>
 
-- [PROJECT-TEMPLATE](#PROJECT-TEMPLATE)
+- [PROJECT-TEMPLATE](#project-template)
   - [Description](#description)
-  - [🛠️ Prerequisites](#%EF%B8%8F-prerequisites)
+  - [🛠️ Prerequisites](#️-prerequisites)
   - [Getting started](#getting-started)
   - [Usage](#usage)
     - [📖 Generate Documentation Site](#-generate-documentation-site)
@@ -84,8 +84,18 @@ For example: OS version, programs, libraries, etc.
 To run the project, run the following command from the root directory of the project:
 
 ```bash
-
+docker compose up --build 
 ```
+
+This will open the server swagger documentation on http://localhost:8000/docs
+
+It might take a minute to start the server. 
+
+And the fronted will be opened on http://localhost:7860
+
+
+
+
 
 <!-- TODO: Instructions on how to run the project and use its features. -->
 
@@ -132,3 +142,4 @@ This project would not have been possible without the hard work and dedication o
 ______________________________________________________________________
 
 Distributed under the MIT License. See `LICENSE` for more information.
+

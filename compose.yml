@@ -1,6 +1,14 @@
 services: 
-  audify: 
+  audify-server: 
     build: .
-    container_name: audify
+    container_name: audify-server
     ports: 
       - "8000:8000" 
+  audify-frontend: 
+    build: ./src
+    container_name: audify-frontend
+    ports: 
+      - "7860:7860" 
+    depends_on: 
+      - audify-server
+

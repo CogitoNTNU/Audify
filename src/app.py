@@ -1,5 +1,6 @@
 import gradio as gr
 import requests
+import os
 
 API_URL = "http://127.0.0.1:8000/tts/"
 
@@ -50,4 +51,8 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
         outputs=[status_output, audio_output]
     )
 
-demo.launch()
+demo.launch(
+    server_name=os.environ.get("GRADIO_SERVER_NAME", "0.0.0.0"),
+    server_port=int(os.environ.get("GRADIO_SERVER_PORT", 7860)),
+    share=False
+)
