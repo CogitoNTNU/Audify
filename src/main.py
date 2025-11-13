@@ -10,12 +10,15 @@ import soundfile as sf
 from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
 import torch
 import soundfile as sf
+# Load model directly
+from transformers import AutoProcessor, AutoModelForTextToSpectrogram
+
 
 app = FastAPI()
 
 # Load models once at startup
-processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
-model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
+processor = AutoProcessor.from_pretrained("Klein2303/speecht5_finetuned_voxpopuli_en")
+model = AutoModelForTextToSpectrogram.from_pretrained("Klein2303/speecht5_finetuned_voxpopuli_en")
 vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
 
 # Default speaker embedding (no voice cloning)
