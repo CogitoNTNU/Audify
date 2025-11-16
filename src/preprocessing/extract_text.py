@@ -39,7 +39,7 @@ def extract_text(
         _log("extract_text: using YouTube extractor")
         # import lazily so callers that don't need video extraction don't
         # require the module at import-time (helps tests and lightweight use)
-        video_mod = importlib.import_module("video_to_md")
+        video_mod = importlib.import_module("preprocessing.video_to_md")
         md_path = video_mod.youtube_to_markdown(input_source)
         with open(md_path, "r", encoding="utf-8") as f:
             return f.read()
@@ -80,7 +80,7 @@ def extract_text(
         _log("extract_text: using markitdown converter")
         output_name = _make_output_name(input_source, parsed)
         # import lazily so file_to_md can be swapped/mocked easily by callers/tests
-        file_mod = importlib.import_module("file_to_md")
+        file_mod = importlib.import_module("preprocessing.file_to_md")
         file_mod.file_to_md(input_source, output_name)
 
         # Resolve markdown path relative to this module's file at runtime so

@@ -9,8 +9,12 @@ import re
 
 sys.path.append(os.path.abspath("src/voice_cloning"))
 from voice_cloning.voice_clone import voice_cloning
+from preprocessing.cleaning_text.text_normalization import TextNormalizer
 
 API_URL = "http://127.0.0.1:8000/tts/"
+
+# Initialize text normalizer
+normalizer = TextNormalizer(language="en")
 
 def chunk_text(text, max_len=50):
     """
@@ -49,25 +53,42 @@ def call_tts(text, file, link, save_audio):
         with open(file.name, "r", encoding="utf-8") as f:
             text = f.read()
     elif link:
+        # When link is provided, let the API handle extraction
+        # Send link to API and get the text processed there
         data["link"] = link
-
-    if not text:
+        text = "link_provided"  # Placeholder to pass the check
+    
+    if not text or text == "":
         return "Please provide text, file, or link.", None
 
-    # ---- Chunking ----
-    chunks = chunk_text(text)
-    print(f"🔹 Chunked into {len(chunks)} parts: {chunks}")
+    # ---- If we have actual text (not a link), normalize it ----
+    if text != "link_provided":
+        text = normalizer.normalize(text)
+        print(f"📝 Normalized text: {text[:200]}...")  # Show first 200 chars
 
-    # ---- Generate TTS for each chunk ----
-    temp_wavs = []
-    for i, chunk in enumerate(chunks):
-        response = requests.post(API_URL, data={"text": chunk, "save": "false"})
+        # ---- Chunking ----
+        chunks = chunk_text(text)
+        print(f"🔹 Chunked into {len(chunks)} parts: {chunks}")
+
+        # ---- Generate TTS for each chunk ----
+        temp_wavs = []
+        for i, chunk in enumerate(chunks):
+            response = requests.post(API_URL, data={"text": chunk, "save": "false"})
+            if response.status_code == 200 and "audio/wav" in response.headers.get("content-type", ""):
+                with tempfile.NamedTemporaryFile(suffix=f"_{i}.wav", delete=False) as tmp:
+                    tmp.write(response.content)
+                    temp_wavs.append(tmp.name)
+            else:
+                return f"❌ Error on chunk {i+1}: {response.text}", None
+    else:
+        # ---- For links, let API handle everything ----
+        response = requests.post(API_URL, data=data)
         if response.status_code == 200 and "audio/wav" in response.headers.get("content-type", ""):
-            with tempfile.NamedTemporaryFile(suffix=f"_{i}.wav", delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp.write(response.content)
-                temp_wavs.append(tmp.name)
+                temp_wavs = [tmp.name]
         else:
-            return f"❌ Error on chunk {i+1}: {response.text}", None
+            return f"❌ Error: {response.text}", None
 
     # ---- Combine all chunks with pauses ----
     combined_audio = []
@@ -91,6 +112,9 @@ def call_tts(text, file, link, save_audio):
     # Cleanup temp files
     for path in temp_wavs:
         os.remove(path)
+
+    # Convert to int16 to avoid Gradio warning
+    final_audio = (final_audio * 32767).astype(np.int16)
 
     return f"✅ Speech generated successfully! Combined {len(chunks)} chunks.", (samplerate, final_audio)
 
