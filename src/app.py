@@ -80,6 +80,7 @@ def call_tts(text, file, link, save_audio):
                     temp_wavs.append(tmp.name)
             else:
                 return f"❌ Error on chunk {i+1}: {response.text}", None
+        num_chunks = len(chunks)
     else:
         # ---- For links, let API handle everything ----
         response = requests.post(API_URL, data=data)
@@ -87,6 +88,7 @@ def call_tts(text, file, link, save_audio):
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp.write(response.content)
                 temp_wavs = [tmp.name]
+            num_chunks = 1  # API handles chunking internally
         else:
             return f"❌ Error: {response.text}", None
 
@@ -116,7 +118,7 @@ def call_tts(text, file, link, save_audio):
     # Convert to int16 to avoid Gradio warning
     final_audio = (final_audio * 32767).astype(np.int16)
 
-    return f"✅ Speech generated successfully! Combined {len(chunks)} chunks.", (samplerate, final_audio)
+    return f"✅ Speech generated successfully! Combined {num_chunks} chunks.", (samplerate, final_audio)
 
 
 def call_clone(voice_file, original_audio, chunk_size):

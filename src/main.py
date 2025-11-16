@@ -60,10 +60,29 @@ def generate_audio(text: str, voice_array=None):
             test_inputs = processor(text=test_chunk, return_tensors="pt")
             
             if test_inputs["input_ids"].shape[1] > max_length:
-                # Process current chunk
+                # Process current chunk if it exists
                 if current_chunk:
                     audio_chunks.append(_generate_audio_single(current_chunk, voice_array))
-                current_chunk = sentence
+                    current_chunk = ""
+                
+                # If the sentence itself is too long, split it by words
+                sentence_inputs = processor(text=sentence, return_tensors="pt")
+                if sentence_inputs["input_ids"].shape[1] > max_length:
+                    words = sentence.split()
+                    word_chunk = ""
+                    for word in words:
+                        test_word_chunk = word_chunk + " " + word if word_chunk else word
+                        test_word_inputs = processor(text=test_word_chunk, return_tensors="pt")
+                        if test_word_inputs["input_ids"].shape[1] > max_length:
+                            if word_chunk:
+                                audio_chunks.append(_generate_audio_single(word_chunk, voice_array))
+                            word_chunk = word
+                        else:
+                            word_chunk = test_word_chunk
+                    if word_chunk:
+                        audio_chunks.append(_generate_audio_single(word_chunk, voice_array))
+                else:
+                    current_chunk = sentence
             else:
                 current_chunk = test_chunk
         
